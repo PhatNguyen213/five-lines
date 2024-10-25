@@ -1,3 +1,31 @@
+const TILE_SIZE = 30;
+const FPS = 30;
+const SLEEP = 1000 / FPS;
+
+let rawMap: RawTile[][] = [
+  [2, 2, 2, 2, 2, 2, 2, 2],
+  [2, 3, 0, 1, 1, 2, 0, 2],
+  [2, 4, 2, 6, 1, 2, 0, 2],
+  [2, 8, 4, 1, 1, 2, 0, 2],
+  [2, 4, 1, 1, 1, 9, 0, 2],
+  [2, 2, 2, 2, 2, 2, 2, 2],
+];
+
+enum RawTile {
+  AIR,
+  FLUX,
+  UNBREAKABLE,
+  PLAYER,
+  STONE,
+  FALLING_STONE,
+  BOX,
+  FALLING_BOX,
+  KEY1,
+  LOCK1,
+  KEY2,
+  LOCK2,
+}
+
 class Map {
   private map: Tile[][];
   remove(shouldRemove: RemoveStrategy) {
@@ -85,10 +113,6 @@ class Player {
   }
 }
 
-const TILE_SIZE = 30;
-const FPS = 30;
-const SLEEP = 1000 / FPS;
-
 interface Tile {
   draw(g: CanvasRenderingContext2D, x: number, y: number): void;
   moveHorizontal(map: Map, player: Player, dx: number): void;
@@ -165,6 +189,7 @@ class Unbreakable implements Tile {
     return false;
   }
 }
+
 class PlayerTile implements Tile {
   update(map: Map, x: number, y: number) {}
   draw(g: CanvasRenderingContext2D, x: number, y: number) {}
@@ -364,15 +389,6 @@ class Locks implements Tile {
   }
 }
 
-let rawMap: RawTile[][] = [
-  [2, 2, 2, 2, 2, 2, 2, 2],
-  [2, 3, 0, 1, 1, 2, 0, 2],
-  [2, 4, 2, 6, 1, 2, 0, 2],
-  [2, 8, 4, 1, 1, 2, 0, 2],
-  [2, 4, 1, 1, 1, 9, 0, 2],
-  [2, 2, 2, 2, 2, 2, 2, 2],
-];
-
 function assertExhausted(x: never): never {
   throw new Error("Unexpected object: " + x);
 }
@@ -409,21 +425,6 @@ function transformTile(tile: RawTile) {
     default:
       assertExhausted(tile);
   }
-}
-
-enum RawTile {
-  AIR,
-  FLUX,
-  UNBREAKABLE,
-  PLAYER,
-  STONE,
-  FALLING_STONE,
-  BOX,
-  FALLING_BOX,
-  KEY1,
-  LOCK1,
-  KEY2,
-  LOCK2,
 }
 
 interface Input {
