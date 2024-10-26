@@ -2,7 +2,102 @@ const TILE_SIZE = 30;
 const FPS = 30;
 const SLEEP = 1000 / FPS;
 
-let rawMap: RawTile[][] = [
+interface RawTileValue {
+  transform(): Tile;
+}
+class AirValue implements RawTileValue {
+  transform() {
+    return new Air();
+  }
+}
+class FluxValue implements RawTileValue {
+  transform() {
+    return new Flux();
+  }
+}
+class UnbreakableValue implements RawTileValue {
+  transform() {
+    return new Unbreakable();
+  }
+}
+class PlayerValue implements RawTileValue {
+  transform() {
+    return new PlayerTile();
+  }
+}
+class StoneValue implements RawTileValue {
+  transform() {
+    return new Stone(new Resting());
+  }
+}
+class FallingStoneValue implements RawTileValue {
+  transform() {
+    return new Stone(new Falling());
+  }
+}
+class BoxValue implements RawTileValue {
+  transform() {
+    return new Box(new Resting());
+  }
+}
+class FallingBoxValue implements RawTileValue {
+  transform() {
+    return new Box(new Falling());
+  }
+}
+class Key1Value implements RawTileValue {
+  transform() {
+    return new Key(YELLOW_KEY);
+  }
+}
+class Lock1Value implements RawTileValue {
+  transform() {
+    return new Locks(YELLOW_KEY);
+  }
+}
+class Key2Value implements RawTileValue {
+  transform() {
+    return new Key(BLUE_KEY);
+  }
+}
+class Lock2Value implements RawTileValue {
+  transform() {
+    return new Locks(BLUE_KEY);
+  }
+}
+
+class RawTile2 {
+  private constructor(private value: RawTileValue) {}
+  static readonly AIR = new AirValue();
+  static readonly FLUX = new FluxValue();
+  static readonly UNBREAKABLE = new UnbreakableValue();
+  static readonly PLAYER = new PlayerValue();
+  static readonly STONE = new StoneValue();
+  static readonly FALLING_STONE = new FallingStoneValue();
+  static readonly BOX = new BoxValue();
+  static readonly FALLING_BOX = new FallingBoxValue();
+  static readonly KEY1 = new Key1Value();
+  static readonly LOCK1 = new Lock1Value();
+  static readonly KEY2 = new Key2Value();
+  static readonly LOCK2 = new Lock2Value();
+}
+
+const RAW_TILES = [
+  RawTile2.AIR,
+  RawTile2.FLUX,
+  RawTile2.UNBREAKABLE,
+  RawTile2.PLAYER,
+  RawTile2.STONE,
+  RawTile2.FALLING_STONE,
+  RawTile2.BOX,
+  RawTile2.FALLING_BOX,
+  RawTile2.KEY1,
+  RawTile2.LOCK1,
+  RawTile2.KEY2,
+  RawTile2.LOCK2,
+];
+
+let rawMap: number[][] = [
   [2, 2, 2, 2, 2, 2, 2, 2],
   [2, 3, 0, 1, 1, 2, 0, 2],
   [2, 4, 2, 6, 1, 2, 0, 2],
@@ -11,23 +106,21 @@ let rawMap: RawTile[][] = [
   [2, 2, 2, 2, 2, 2, 2, 2],
 ];
 
-enum RawTile {
-  AIR,
-  FLUX,
-  UNBREAKABLE,
-  PLAYER,
-  STONE,
-  FALLING_STONE,
-  BOX,
-  FALLING_BOX,
-  KEY1,
-  LOCK1,
-  KEY2,
-  LOCK2,
-}
-
 class Map {
   private map: Tile[][];
+  constructor() {
+    this.map = new Array(rawMap.length);
+    for (let y = 0; y < rawMap.length; y++) {
+      this.map[y] = new Array(rawMap[y].length);
+      for (let x = 0; x < rawMap[y].length; x++) {
+        const rawTile = RAW_TILES[rawMap[y][x]];
+        this.map[y][x] = rawTile.transform();
+      }
+    }
+  }
+  getBlockOnTopState(x: number, y: number) {
+    return this.isAir(x, y + 1) ? new Falling() : new Resting();
+  }
   remove(shouldRemove: RemoveStrategy) {
     for (let y = 0; y < this.map.length; y++) {
       for (let x = 0; x < this.map[y].length; x++) {
@@ -54,15 +147,6 @@ class Map {
       }
     }
   }
-  transform() {
-    this.map = new Array(rawMap.length);
-    for (let y = 0; y < rawMap.length; y++) {
-      this.map[y] = new Array(rawMap[y].length);
-      for (let x = 0; x < rawMap[y].length; x++) {
-        this.map[y][x] = transformTile(rawMap[y][x]);
-      }
-    }
-  }
   moveToTile(x: number, y: number, newx: number, newy: number) {
     this.map[y][x] = new Air();
     this.map[newy][newx] = new PlayerTile();
@@ -78,6 +162,12 @@ class Map {
   }
   setTile(x: number, y: number, tile: Tile) {
     this.map[y][x] = tile;
+  }
+  pushHorizontal(player: Player, tile: Tile, x: number, y: number, dx: number) {
+    if (this.isAir(x + dx + dx, y) && !this.isAir(x + dx, y + 1)) {
+      this.setTile(x + dx + dx, y, tile);
+      player.move(this, dx, 0);
+    }
   }
 }
 
@@ -103,13 +193,7 @@ class Player {
     map.moveVertical(this, this.x, this.y, dy);
   }
   pushHorizontal(map: Map, tile: Tile, dx: number) {
-    if (
-      map.isAir(this.x + dx + dx, this.y) &&
-      !map.isAir(this.x + dx, this.y + 1)
-    ) {
-      map.setTile(this.x + dx + dx, this.y, tile);
-      this.moveToTile(map, this.x + dx, this.y);
-    }
+    map.pushHorizontal(this, tile, this.x, this.y, dx);
   }
 }
 
@@ -260,7 +344,7 @@ class FallStrategy {
     }
   }
   update(map: Map, tile: Tile, x: number, y: number) {
-    this.falling = map.isAir(x, y + 1) ? new Falling() : new Resting();
+    this.falling = map.getBlockOnTopState(x, y);
     this.drop(map, tile, x, y);
   }
 }
@@ -396,37 +480,6 @@ function assertExhausted(x: never): never {
 const YELLOW_KEY = new KeyConfiguration("#ffcc00", true, new RemoveLock1());
 const BLUE_KEY = new KeyConfiguration("#00ccff", false, new RemoveLock2());
 
-function transformTile(tile: RawTile) {
-  switch (tile) {
-    case RawTile.AIR:
-      return new Air();
-    case RawTile.PLAYER:
-      return new PlayerTile();
-    case RawTile.UNBREAKABLE:
-      return new Unbreakable();
-    case RawTile.STONE:
-      return new Stone(new Resting());
-    case RawTile.FALLING_STONE:
-      return new Stone(new Falling());
-    case RawTile.BOX:
-      return new Box(new Resting());
-    case RawTile.FALLING_BOX:
-      return new Box(new Falling());
-    case RawTile.FLUX:
-      return new Flux();
-    case RawTile.KEY1:
-      return new Key(YELLOW_KEY);
-    case RawTile.LOCK1:
-      return new Locks(YELLOW_KEY);
-    case RawTile.KEY2:
-      return new Key(BLUE_KEY);
-    case RawTile.LOCK2:
-      return new Locks(BLUE_KEY);
-    default:
-      assertExhausted(tile);
-  }
-}
-
 interface Input {
   handle(map: Map, player: Player): void;
 }
@@ -504,7 +557,6 @@ function gameLoop(map: Map, player: Player) {
 window.onload = () => {
   const map = new Map();
   const player = new Player();
-  map.transform();
   gameLoop(map, player);
 };
 
